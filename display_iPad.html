@@ -23,7 +23,7 @@
   }
   .screen{
     position:relative;overflow:hidden;border-radius:1vw;
-    width:min(var(--pw,88vw),calc((100vh - 3.2vw) * 2.5));
+    width:min(var(--pw,72vw),calc((100vh - 12vh) * 2.5));
     aspect-ratio:2.5 / 1;
     background:
       repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 2px,transparent 2px 4px),
@@ -55,7 +55,7 @@
   }
 
   .idle{position:absolute;inset:0;display:grid;place-items:center;text-align:center;
-    font-family:'Anuphan';font-weight:600;font-size:6vw;color:var(--lcd-dim);
+    font-family:'Anuphan';font-weight:600;font-size:clamp(26px,3.4vw,52px);color:var(--lcd-dim);
     text-shadow:0 0 1vw rgba(63,107,46,.5);animation:blink 1.5s step-end infinite}
   @keyframes blink{50%{opacity:.35}}
 
@@ -117,7 +117,9 @@
 <script>
 (function(){
   "use strict";
-  const PID = new URLSearchParams(location.search).get('p') || 'main';
+  const params = new URLSearchParams(location.search);
+  const PID = params.get('p') || 'main';
+  const WS_HOST = params.get('host') || 'pager-wall-717366653528.asia-southeast1.run.app';
   const _origFetch = window.fetch.bind(window);
   window.fetch = function(u, o){ if(typeof u==='string' && u.indexOf('/api/')===0){ u += (u.indexOf('?')>=0?'&':'?') + 'p=' + encodeURIComponent(PID); } return _origFetch(u, o); };
 
@@ -162,11 +164,11 @@
     const body = box.querySelector('.body');
     const availH = screen.clientHeight * 0.86;   // เผื่อบรรทัด FROM ด้านบน
     const availW = screen.clientWidth  * 0.94;
-    let size = Math.min(screen.clientHeight * 0.55, 360); // เพดานตัวใหญ่สุด
+    let size = Math.min(screen.clientHeight * 0.42, 220); // เพดานตัวใหญ่สุด
     body.style.fontSize = size + 'px';
     let guard = 0;
     while((body.scrollHeight > availH || body.scrollWidth > availW) && size > 14 && guard < 400){
-      size -= 3; body.style.fontSize = size + 'px'; guard++;
+      size -= 2; body.style.fontSize = size + 'px'; guard++;
     }
   }
 
@@ -212,13 +214,18 @@
     showMessage(next);
   }
 
-  function connect(){
-    const cloudHost = 'pager-wall-717366653528.asia-southeast1.run.app';
+  function connect(usePid = true){
+    const cloudHost = WS_HOST;
     const host = location.host === cloudHost ? location.host : cloudHost;
     const proto = host === cloudHost ? 'wss' : location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(proto+'://'+host+'/ws/display?p='+encodeURIComponent(PID));
+    const query = usePid ? '?p=' + encodeURIComponent(PID) : '';
+    const ws = new WebSocket(proto+'://'+host+'/ws/display'+query);
     ws.onopen = ()=>{ conn.textContent='● live'; conn.classList.remove('bad'); };
-    ws.onclose= ()=>{ conn.textContent='● reconnecting…'; conn.classList.add('bad'); setTimeout(connect,1500); };
+    ws.onclose= ()=>{
+      conn.textContent='● reconnecting…';
+      conn.classList.add('bad');
+      setTimeout(()=>connect(!usePid), usePid ? 700 : 1500);
+    };
     ws.onmessage = (e)=>{
       const d = JSON.parse(e.data);
       if(d.type==='queue'){
